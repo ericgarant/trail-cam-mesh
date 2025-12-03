@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Trail Cam Mesh</string>
+    <string name="notification_channel_name">Trail Camera Alerts</string>
+    <string name="notification_channel_description">Motion detection alerts from trail cameras</string>
+</resources>
+
+

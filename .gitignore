@@ -1,0 +1,35 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+*.o
+*.a
+*.elf
+*.bin
+*.hex
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Android
+android-app/.gradle/
+android-app/app/build/
+android-app/build/
+android-app/local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
+
