@@ -13,7 +13,7 @@
 #define DEVICE_ROLE ROLE_SENSOR
 
 // Unique device ID (1-254, 0 is reserved, 255 is broadcast)
-#define DEVICE_ID 3
+#define DEVICE_ID 5
 
 // Device roles enumeration
 #define ROLE_SENSOR  0
