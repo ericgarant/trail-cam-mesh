@@ -41,7 +41,7 @@ static uint32_t motionTimestamp = 0;
  * Called when PIR sensor detects motion
  */
 void onMotionDetected() {
-    DEBUG_PRINTLN("[MAIN] Motion detected!");
+    DEBUG_PRINTLN("[MAIN] ===== MOTION DETECTED via PIR sensor! =====");
     
     // Flash LED to indicate motion
     ledIndicator.flash(3, 100, 100);
@@ -49,6 +49,8 @@ void onMotionDetected() {
     // Set flag for main loop to handle
     motionPending = true;
     motionTimestamp = millis();
+    
+    DEBUG_PRINTF("[MAIN] Motion timestamp: %lu\n", motionTimestamp);
 }
 
 /**
@@ -61,61 +63,67 @@ void handleMotion() {
     
     motionPending = false;
     
-    DEBUG_PRINTLN("[MAIN] Processing motion event...");
+    DEBUG_PRINTLN("[MAIN] ===== Processing motion event... =====");
     
     // Set LED to transmit pattern
     ledIndicator.setPattern(LedPattern::BLINK_TRANSMIT);
     
-    // Capture image
+    // Capture image (only if camera is initialized)
     bool hasImage = false;
     uint16_t imageId = 0;
     
-    if (camera.capture()) {
-        hasImage = true;
-        imageId = ++imageCounter;
-        
-        DEBUG_PRINTF("[MAIN] Image captured: %u bytes, ID: %d\n", 
-            camera.getImageLength(), imageId);
+    #if DEVICE_ROLE == ROLE_SENSOR
+    DEBUG_PRINTF("[MAIN] Camera isInitialized(): %s\n", camera.isInitialized() ? "TRUE" : "FALSE");
+    if (camera.isInitialized()) {
+        DEBUG_PRINTLN("[MAIN] Attempting to capture image...");
+        if (camera.capture()) {
+            hasImage = true;
+            imageId = ++imageCounter;
+            
+            DEBUG_PRINTLN("[MAIN] ===== IMAGE CAPTURED SUCCESSFULLY =====");
+            DEBUG_PRINTF("[MAIN] Image size: %u bytes, ID: %d\n", 
+                camera.getImageLength(), imageId);
+        } else {
+            DEBUG_PRINTLN("[MAIN] ===== Image capture FAILED =====");
+        }
     } else {
-        DEBUG_PRINTLN("[MAIN] Image capture failed");
+        DEBUG_PRINTLN("[MAIN] ===== Camera not initialized - skipping image capture =====");
     }
+    #endif
     
     #if DEVICE_ROLE == ROLE_GATEWAY
-    // Gateway sends directly to phone via BLE
-    if (bleGateway.isConnected()) {
-        // Send motion alert directly to phone
-        bleGateway.notifyMotionAlert(DEVICE_ID, motionTimestamp, hasImage);
-        
-        // Send image directly to phone if captured
-        if (hasImage) {
-            bleGateway.sendImageToPhone(
-                camera.getImageData(),
-                camera.getImageLength(),
-                DEVICE_ID,
-                imageId
-            );
-        }
-    }
-    // Also broadcast to mesh so other nodes know
+    // Gateway should not process its own motion (no camera/PIR on gateway hardware)
+    // This code path should not be reached on a gateway without PIR sensor
+    DEBUG_PRINTLN("[MAIN] WARNING: Motion detected on gateway - this should not happen!");
+    // Just send heartbeat to mesh
     meshNetwork.sendHeartbeat();
     #else
     // Sensor nodes send via mesh to gateway
-    meshNetwork.sendMotionAlert(motionTimestamp, imageId, hasImage);
+    DEBUG_PRINTF("[MAIN] Sending motion alert: timestamp=%lu, imageId=%d, hasImage=%d\n",
+        motionTimestamp, imageId, hasImage ? 1 : 0);
+    bool alertSent = meshNetwork.sendMotionAlert(motionTimestamp, imageId, hasImage);
+    DEBUG_PRINTF("[MAIN] Motion alert send result: %s\n", alertSent ? "SUCCESS" : "FAILED");
     
     // Send image if captured
-    if (hasImage) {
-        meshNetwork.sendImage(
+    if (hasImage && camera.isInitialized()) {
+        DEBUG_PRINTLN("[MAIN] ===== Starting image send through mesh... =====");
+        bool imageSent = meshNetwork.sendImage(
             camera.getImageData(),
             camera.getImageLength(),
             imageId
         );
+        DEBUG_PRINTF("[MAIN] Image send result: %s\n", imageSent ? "SUCCESS" : "FAILED");
+    } else {
+        DEBUG_PRINTLN("[MAIN] Skipping image send (hasImage=false or camera not initialized)");
     }
     #endif
     
-    // Release camera buffer
-    if (hasImage) {
+    // Release camera buffer (only if camera was used)
+    #if DEVICE_ROLE == ROLE_SENSOR
+    if (hasImage && camera.isInitialized()) {
         camera.releaseFrame();
     }
+    #endif
     
     // Return LED to slow blink (idle)
     ledIndicator.setPattern(LedPattern::BLINK_SLOW);
@@ -227,6 +235,20 @@ void onBleConnect(bool connected) {
         ledIndicator.setPattern(LedPattern::ON);
         delay(500);
         ledIndicator.setPattern(LedPattern::BLINK_SLOW);
+        
+        // Send gateway's own status first
+        auto& nodes = meshNetwork.getNodes();
+        uint8_t totalNodes = nodes.size() + 1;  // Include gateway itself
+        
+        bleGateway.notifyStatus(DEVICE_ID, 100, 0, totalNodes);
+        delay(50);
+        
+        // Send all currently known sensor nodes to phone
+        DEBUG_PRINTF("[MAIN] Sending %d known nodes to phone on connection\n", nodes.size());
+        for (auto& node : nodes) {
+            bleGateway.notifyStatus(node.nodeId, 100, node.rssi, totalNodes);
+            delay(50);  // Small delay between notifications
+        }
     }
 }
 
@@ -296,21 +318,28 @@ void setup() {
     ledIndicator.begin();
     ledIndicator.setPattern(LedPattern::BLINK_FAST);
     
-    // Initialize camera
+    // Initialize camera (sensor nodes only)
+    #if DEVICE_ROLE == ROLE_SENSOR
     DEBUG_PRINTLN("[MAIN] Initializing camera...");
     if (!camera.begin()) {
-        DEBUG_PRINTLN("[MAIN] Camera init failed!");
-        ledIndicator.setPattern(LedPattern::BLINK_ERROR);
-        while (1) {
-            ledIndicator.update();
-            delay(10);
-        }
+        DEBUG_PRINTLN("[MAIN] ===== WARNING: Camera init FAILED! Continuing without camera... =====");
+        // Continue without camera - device can still send motion alerts without images
+    } else {
+        DEBUG_PRINTLN("[MAIN] ===== Camera initialized SUCCESSFULLY =====");
+        DEBUG_PRINTF("[MAIN] Camera isInitialized(): %s\n", camera.isInitialized() ? "TRUE" : "FALSE");
     }
+    #else
+    DEBUG_PRINTLN("[MAIN] Gateway mode - skipping camera initialization");
+    #endif
     
-    // Initialize PIR sensor
+    // Initialize PIR sensor (sensor nodes only)
+    #if DEVICE_ROLE == ROLE_SENSOR
     DEBUG_PRINTLN("[MAIN] Initializing PIR sensor...");
     pirSensor.begin();
     pirSensor.setMotionCallback(onMotionDetected);
+    #else
+    DEBUG_PRINTLN("[MAIN] Gateway mode - skipping PIR sensor initialization");
+    #endif
     
     // Initialize mesh network
     DEBUG_PRINTLN("[MAIN] Initializing mesh network...");
@@ -340,12 +369,18 @@ void setup() {
     // Initialization complete
     ledIndicator.setPattern(LedPattern::BLINK_SLOW);
     DEBUG_PRINTLN("\n[MAIN] Initialization complete!");
+    #if DEVICE_ROLE == ROLE_GATEWAY
+    DEBUG_PRINTLN("[MAIN] Gateway ready - waiting for mesh messages...\n");
+    #else
     DEBUG_PRINTLN("[MAIN] Waiting for motion...\n");
+    #endif
 }
 
 void loop() {
     // Update all modules
-    pirSensor.update();
+    #if DEVICE_ROLE == ROLE_SENSOR
+    pirSensor.update();  // Only update PIR on sensor nodes
+    #endif
     ledIndicator.update();
     meshNetwork.update();
     
@@ -353,8 +388,10 @@ void loop() {
     bleGateway.update();
     #endif
     
-    // Handle pending motion events
+    // Handle pending motion events (only applicable to sensor nodes)
+    #if DEVICE_ROLE == ROLE_SENSOR
     handleMotion();
+    #endif
     
     // Small delay to prevent watchdog issues
     delay(1);
