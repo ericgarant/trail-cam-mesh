@@ -1,6 +1,8 @@
 package com.trailcam.mesh.ui.screens
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.trailcam.mesh.data.CapturedImage
+import com.trailcam.mesh.data.ImageSettings
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -29,6 +32,7 @@ import java.util.*
 fun ImagesScreen(
     images: List<CapturedImage>,
     selectedImage: CapturedImage?,
+    nodeImageSettings: Map<Int, ImageSettings>,
     onImageClick: (CapturedImage) -> Unit,
     onDismissImage: () -> Unit,
     modifier: Modifier = Modifier
@@ -48,6 +52,7 @@ fun ImagesScreen(
             items(images, key = { "${it.nodeId}-${it.imageId}" }) { image ->
                 ImageCard(
                     image = image,
+                    imageSettings = nodeImageSettings[image.nodeId] ?: ImageSettings(),
                     onClick = { onImageClick(image) }
                 )
             }
@@ -58,6 +63,7 @@ fun ImagesScreen(
     selectedImage?.let { image ->
         ImageDetailDialog(
             image = image,
+            imageSettings = nodeImageSettings[image.nodeId] ?: ImageSettings(),
             onDismiss = onDismissImage
         )
     }
@@ -66,11 +72,17 @@ fun ImagesScreen(
 @Composable
 private fun ImageCard(
     image: CapturedImage,
+    imageSettings: ImageSettings,
     onClick: () -> Unit
 ) {
-    val bitmap = remember(image.data) {
+    val bitmap = remember(image.data, imageSettings) {
         try {
-            BitmapFactory.decodeByteArray(image.data, 0, image.data.size)?.asImageBitmap()
+            val original = BitmapFactory.decodeByteArray(image.data, 0, image.data.size)
+            if (original != null) {
+                applyImageTransformations(original, imageSettings)?.asImageBitmap()
+            } else {
+                null
+            }
         } catch (e: Exception) {
             null
         }
@@ -138,11 +150,17 @@ private fun ImageCard(
 @Composable
 private fun ImageDetailDialog(
     image: CapturedImage,
+    imageSettings: ImageSettings,
     onDismiss: () -> Unit
 ) {
-    val bitmap = remember(image.data) {
+    val bitmap = remember(image.data, imageSettings) {
         try {
-            BitmapFactory.decodeByteArray(image.data, 0, image.data.size)?.asImageBitmap()
+            val original = BitmapFactory.decodeByteArray(image.data, 0, image.data.size)
+            if (original != null) {
+                applyImageTransformations(original, imageSettings)?.asImageBitmap()
+            } else {
+                null
+            }
         } catch (e: Exception) {
             null
         }
@@ -236,6 +254,33 @@ private fun ImageDetailDialog(
                 }
             }
         }
+    }
+}
+
+/**
+ * Apply image transformations (flip/mirror) based on settings
+ */
+private fun applyImageTransformations(bitmap: Bitmap, settings: ImageSettings): Bitmap? {
+    if (!settings.vflip && !settings.hmirror) {
+        return bitmap
+    }
+    
+    val matrix = Matrix()
+    
+    if (settings.vflip) {
+        // Vertical flip: scale y by -1, pivot at center
+        matrix.postScale(1f, -1f, bitmap.width / 2f, bitmap.height / 2f)
+    }
+    
+    if (settings.hmirror) {
+        // Horizontal mirror: scale x by -1, pivot at center
+        matrix.postScale(-1f, 1f, bitmap.width / 2f, bitmap.height / 2f)
+    }
+    
+    return try {
+        Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    } catch (e: Exception) {
+        bitmap
     }
 }
 

@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.trailcam.mesh.data.ConnectionState
+import com.trailcam.mesh.data.ImageSettings
 import com.trailcam.mesh.data.NodeNameManager
 import com.trailcam.mesh.data.NodeStatus
 import java.text.SimpleDateFormat
@@ -26,9 +27,12 @@ fun StatusScreen(
     connectionState: ConnectionState,
     nodeStatuses: Map<Int, NodeStatus>,
     nodeNames: Map<Int, String>,
+    nodeImageSettings: Map<Int, ImageSettings>,
     onRequestStatus: () -> Unit,
     onPingMesh: () -> Unit,
     onSetNodeName: (Int, String) -> Unit,
+    onSetImageVFlip: (Int, Boolean) -> Unit,
+    onSetImageHMirror: (Int, Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var editingNodeId by remember { mutableStateOf<Int?>(null) }
@@ -183,14 +187,20 @@ fun StatusScreen(
     // Edit name dialog
     editingNodeId?.let { nodeId ->
         val status = nodeStatuses[nodeId]
+        val imageSettings = nodeImageSettings[nodeId] ?: ImageSettings()
         NodeNameDialog(
             nodeId = nodeId,
             currentName = nodeNames[nodeId] ?: "",
+            imageSettings = imageSettings,
             isGateway = status?.rssi == 0,
             onDismiss = { editingNodeId = null },
             onSave = { name ->
                 onSetNodeName(nodeId, name)
                 editingNodeId = null
+            },
+            onImageSettingsChanged = { vflip, hmirror ->
+                onSetImageVFlip(nodeId, vflip)
+                onSetImageHMirror(nodeId, hmirror)
             }
         )
     }
@@ -331,11 +341,15 @@ private fun NodeStatusCard(
 private fun NodeNameDialog(
     nodeId: Int,
     currentName: String,
+    imageSettings: ImageSettings,
     isGateway: Boolean,
     onDismiss: () -> Unit,
-    onSave: (String) -> Unit
+    onSave: (String) -> Unit,
+    onImageSettingsChanged: (vflip: Boolean, hmirror: Boolean) -> Unit
 ) {
     var name by remember { mutableStateOf(currentName) }
+    var vflip by remember { mutableStateOf(imageSettings.vflip) }
+    var hmirror by remember { mutableStateOf(imageSettings.hmirror) }
     val defaultName = if (isGateway) "Gateway" else "Camera $nodeId"
     
     Dialog(onDismissRequest = onDismiss) {
@@ -395,6 +409,58 @@ private fun NodeNameDialog(
                 }
                 
                 Spacer(modifier = Modifier.height(20.dp))
+                
+                // Image display settings
+                if (!isGateway) {
+                    Divider()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Image Display",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Flip Vertically",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Switch(
+                            checked = vflip,
+                            onCheckedChange = { 
+                                vflip = it
+                                onImageSettingsChanged(vflip, hmirror)
+                            }
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Mirror Horizontally",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Switch(
+                            checked = hmirror,
+                            onCheckedChange = { 
+                                hmirror = it
+                                onImageSettingsChanged(vflip, hmirror)
+                            }
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

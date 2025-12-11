@@ -12,6 +12,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     private val bleManager = BleManager(application)
     val nodeNameManager = NodeNameManager(application)
+    val nodeImageSettingsManager = NodeImageSettingsManager(application)
     
     // UI State
     val connectionState: StateFlow<ConnectionState> = bleManager.connectionState
@@ -20,6 +21,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val capturedImages: StateFlow<List<CapturedImage>> = bleManager.capturedImages
     val nodeStatuses: StateFlow<Map<Int, NodeStatus>> = bleManager.nodeStatuses
     val nodeNames: StateFlow<Map<Int, String>> = nodeNameManager.nodeNames
+    val nodeImageSettings: StateFlow<Map<Int, ImageSettings>> = nodeImageSettingsManager.nodeImageSettings
     
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
@@ -75,6 +77,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     fun getNodeName(nodeId: Int): String {
         return nodeNameManager.getNodeName(nodeId)
+    }
+    
+    fun getImageSettings(nodeId: Int): ImageSettings {
+        return nodeImageSettingsManager.getImageSettings(nodeId)
+    }
+    
+    fun setImageVFlip(nodeId: Int, vflip: Boolean) {
+        nodeImageSettingsManager.setVFlip(nodeId, vflip)
+    }
+    
+    fun setImageHMirror(nodeId: Int, hmirror: Boolean) {
+        nodeImageSettingsManager.setHMirror(nodeId, hmirror)
     }
     
     override fun onCleared() {
