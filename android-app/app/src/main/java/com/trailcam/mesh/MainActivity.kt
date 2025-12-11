@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
                 val capturedImages by viewModel.capturedImages.collectAsState()
                 val nodeStatuses by viewModel.nodeStatuses.collectAsState()
                 val nodeNames by viewModel.nodeNames.collectAsState()
+                val nodeImageSettings by viewModel.nodeImageSettings.collectAsState()
                 val selectedTab by viewModel.selectedTab.collectAsState()
                 val selectedImage by viewModel.selectedImage.collectAsState()
                 
@@ -226,6 +227,7 @@ class MainActivity : ComponentActivity() {
                             2 -> ImagesScreen(
                                 images = capturedImages,
                                 selectedImage = selectedImage,
+                                nodeImageSettings = nodeImageSettings,
                                 onImageClick = { viewModel.selectImage(it) },
                                 onDismissImage = { viewModel.selectImage(null) },
                                 modifier = Modifier.padding(padding)
@@ -234,9 +236,12 @@ class MainActivity : ComponentActivity() {
                                 connectionState = connectionState,
                                 nodeStatuses = nodeStatuses,
                                 nodeNames = nodeNames,
+                                nodeImageSettings = nodeImageSettings,
                                 onRequestStatus = { viewModel.requestStatus() },
                                 onPingMesh = { viewModel.pingMesh() },
                                 onSetNodeName = { nodeId, name -> viewModel.setNodeName(nodeId, name) },
+                                onSetImageVFlip = { nodeId, vflip -> viewModel.setImageVFlip(nodeId, vflip) },
+                                onSetImageHMirror = { nodeId, hmirror -> viewModel.setImageHMirror(nodeId, hmirror) },
                                 modifier = Modifier.padding(padding)
                             )
                         }
