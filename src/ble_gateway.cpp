@@ -201,26 +201,75 @@ void BleGateway::onWrite(BLECharacteristic* characteristic) {
     }
 }
 
-bool BleGateway::notifyMotionAlert(uint16_t nodeId, uint32_t timestamp, bool hasImage) {
+bool BleGateway::notifyMotionAlert(uint16_t nodeId, uint32_t timestamp, bool hasImage, const uint16_t* path, uint8_t pathLength) {
     if (!isConnected()) {
         return false;
     }
     
-    // Pack motion alert data
-    uint8_t data[8];
-    data[0] = nodeId & 0xFF;
-    data[1] = (nodeId >> 8) & 0xFF;
-    data[2] = timestamp & 0xFF;
-    data[3] = (timestamp >> 8) & 0xFF;
-    data[4] = (timestamp >> 16) & 0xFF;
-    data[5] = (timestamp >> 24) & 0xFF;
-    data[6] = hasImage ? 1 : 0;
-    data[7] = 0;  // Reserved
+    // Build path with gateway appended (if path provided)
+    uint16_t fullPath[MAX_PATH_LENGTH + 1];  // MAX_PATH_LENGTH + 1 for gateway
+    uint8_t fullPathLength = 0;
     
-    _motionChar->setValue(data, sizeof(data));
+    if (path != nullptr && pathLength > 0) {
+        // Copy existing path
+        uint8_t copyLength = pathLength > MAX_PATH_LENGTH ? MAX_PATH_LENGTH : pathLength;
+        memcpy(fullPath, path, copyLength * sizeof(uint16_t));
+        fullPathLength = copyLength;
+        
+        // Append gateway node ID if not already last and there's room
+        if (fullPathLength < (MAX_PATH_LENGTH + 1) && 
+            (fullPathLength == 0 || fullPath[fullPathLength - 1] != DEVICE_ID)) {
+            fullPath[fullPathLength] = DEVICE_ID;
+            fullPathLength++;
+        }
+    } else {
+        // No path provided, just include gateway
+        fullPath[0] = DEVICE_ID;
+        fullPathLength = 1;
+    }
+    
+    // Pack motion alert data with path
+    // Format: [nodeId(2), timestamp(4), hasImage(1), pathLength(1), path[...](up to (MAX_PATH_LENGTH+1)*2 bytes)]
+    uint8_t data[8 + 1 + ((MAX_PATH_LENGTH + 1) * 2)];  // Base 8 bytes + pathLength + max path
+    size_t offset = 0;
+    
+    // Node ID (2 bytes)
+    data[offset++] = nodeId & 0xFF;
+    data[offset++] = (nodeId >> 8) & 0xFF;
+    
+    // Timestamp (4 bytes)
+    data[offset++] = timestamp & 0xFF;
+    data[offset++] = (timestamp >> 8) & 0xFF;
+    data[offset++] = (timestamp >> 16) & 0xFF;
+    data[offset++] = (timestamp >> 24) & 0xFF;
+    
+    // Has image (1 byte)
+    data[offset++] = hasImage ? 1 : 0;
+    
+    // Path length (1 byte)
+    data[offset++] = fullPathLength;
+    
+    // Path array (2 bytes per node ID)
+    for (uint8_t i = 0; i < fullPathLength; i++) {
+        data[offset++] = fullPath[i] & 0xFF;
+        data[offset++] = (fullPath[i] >> 8) & 0xFF;
+    }
+    
+    _motionChar->setValue(data, offset);
     _motionChar->notify();
     
-    DEBUG_PRINTF("[BLE] Motion alert sent: node=%d, hasImage=%d\n", nodeId, hasImage);
+    DEBUG_PRINTF("[BLE] Motion alert sent: node=%d, hasImage=%d, pathLength=%d\n", 
+        nodeId, hasImage, fullPathLength);
+    if (fullPathLength > 0) {
+        DEBUG_PRINT("[BLE] Path: ");
+        for (uint8_t i = 0; i < fullPathLength; i++) {
+            DEBUG_PRINTF("%d", fullPath[i]);
+            if (i < fullPathLength - 1) {
+                DEBUG_PRINT(" -> ");
+            }
+        }
+        DEBUG_PRINTLN("");
+    }
     
     return true;
 }

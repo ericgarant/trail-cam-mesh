@@ -147,11 +147,18 @@ void onMeshMessage(const MeshMessage& msg) {
                 msg.header.sourceId, payload->hasImage);
             
             #if DEVICE_ROLE == ROLE_GATEWAY
-            // Forward to phone via BLE
+            // Extract path from message
+            uint16_t path[MAX_PATH_LENGTH];
+            uint8_t pathLength = 0;
+            MessageProtocol::getPath(msg, path, &pathLength);
+            
+            // Forward to phone via BLE with path information
             bleGateway.notifyMotionAlert(
                 msg.header.sourceId,
                 payload->timestamp,
-                payload->hasImage
+                payload->hasImage,
+                pathLength > 0 ? path : nullptr,
+                pathLength
             );
             #endif
             break;

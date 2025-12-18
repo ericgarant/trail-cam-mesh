@@ -319,6 +319,19 @@ class BleManager(private val context: Context) {
         val nodeId = buffer.short.toInt() and 0xFFFF
         val timestamp = buffer.int.toLong() and 0xFFFFFFFFL
         val hasImage = buffer.get() != 0.toByte()
+
+        // Optional path data (only present with newer gateway firmware)
+        val pathIds = mutableListOf<Int>()
+        if (buffer.remaining() >= 1) {
+            // Read path length and clamp to number of complete 2-byte entries remaining
+            val pathLength = buffer.get().toInt() and 0xFF
+            val maxPairs = buffer.remaining() / 2
+            val count = minOf(pathLength, maxPairs)
+            repeat(count) {
+                val id = buffer.short.toInt() and 0xFFFF
+                pathIds.add(id)
+            }
+        }
         
         // Global deduplication: ignore ANY alert within cooldown window
         // This prevents false gateway alerts triggered by electrical noise during sensor alert processing
@@ -329,7 +342,12 @@ class BleManager(private val context: Context) {
         }
         lastAlertTime = now
         
-        val alert = MotionAlert(nodeId, timestamp, hasImage)
+        val alert = MotionAlert(
+            nodeId = nodeId,
+            timestamp = timestamp,
+            hasImage = hasImage,
+            path = pathIds
+        )
         
         val currentAlerts = _motionAlerts.value.toMutableList()
         currentAlerts.add(0, alert) // Add to front

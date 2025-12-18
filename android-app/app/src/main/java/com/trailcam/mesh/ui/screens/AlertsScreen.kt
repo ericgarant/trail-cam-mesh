@@ -113,11 +113,12 @@ fun AlertsScreen(
             it.nodeId == alert.nodeId && 
             kotlin.math.abs(it.timestamp - alert.receivedAt) < 5000
         }
-        
+
         AlertDetailDialog(
             alert = alert,
             nodeName = nodeNames[alert.nodeId] ?: "Camera ${alert.nodeId}",
             image = associatedImage,
+            nodeNames = nodeNames,
             onDismiss = { selectedAlert = null },
             onDelete = {
                 onDeleteAlert(alert)
@@ -293,6 +294,15 @@ private fun AlertCard(
                     text = "Motion detected",
                     style = MaterialTheme.typography.bodyMedium
                 )
+                if (alert.path.size > 1) {
+                    val hops = alert.path.size - 1
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Hops: $hops",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Text(
                     text = dateFormat.format(Date(alert.receivedAt)),
                     style = MaterialTheme.typography.bodySmall,
@@ -314,6 +324,7 @@ private fun AlertDetailDialog(
     alert: MotionAlert,
     nodeName: String,
     image: CapturedImage?,
+    nodeNames: Map<Int, String>,
     onDismiss: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -327,6 +338,21 @@ private fun AlertDetailDialog(
             } catch (e: Exception) {
                 null
             }
+        }
+    }
+
+    // Build a human-readable route from the alert path, if available
+    val routeText = remember(alert.path, nodeNames) {
+        if (alert.path.isEmpty()) {
+            null
+        } else {
+            val labels = alert.path.mapIndexed { index, id ->
+                when {
+                    index == alert.path.lastIndex -> "Gateway"
+                    else -> nodeNames[id] ?: "Camera $id"
+                }
+            }
+            labels.joinToString(" \u2192 ")
         }
     }
     
@@ -365,6 +391,14 @@ private fun AlertDetailDialog(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (routeText != null) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Route: $routeText",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Close")

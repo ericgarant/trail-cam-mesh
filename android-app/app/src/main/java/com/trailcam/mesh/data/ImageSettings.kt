@@ -8,3 +8,5 @@ data class ImageSettings(
     val hmirror: Boolean = false
 )
 
+
+

@@ -24,6 +24,9 @@ enum class MessageType : uint8_t {
 #define BROADCAST_ID 0xFFFF
 #define GATEWAY_ID 0x0000
 
+// Path tracking configuration
+#define MAX_PATH_LENGTH 8  // Maximum number of nodes in routing path
+
 // Message header structure (10 bytes)
 #pragma pack(push, 1)
 struct MessageHeader {
@@ -48,6 +51,8 @@ struct MotionAlertPayload {
     uint8_t  sensorId;      // Which sensor triggered
     uint16_t imageId;       // Associated image ID (if any)
     uint8_t  hasImage;      // Whether image is being sent
+    uint8_t  pathLength;    // Number of nodes in routing path (0 = no path tracking)
+    uint16_t path[MAX_PATH_LENGTH];  // Routing path: [sourceNode, relay1, relay2, ..., gateway]
 };
 
 // Image start payload
@@ -124,6 +129,10 @@ public:
     static MeshMessage createImageStart(uint16_t sourceId, uint16_t imageId, uint32_t size, uint16_t chunks);
     static MeshMessage createImageChunk(uint16_t sourceId, uint16_t imageId, uint16_t chunkIndex, const uint8_t* data, uint8_t size);
     static MeshMessage createAck(uint16_t sourceId, uint16_t destId, uint16_t sequence);
+    
+    // Path tracking helpers for motion alerts
+    static bool appendToPath(MeshMessage& msg, uint16_t nodeId);
+    static bool getPath(const MeshMessage& msg, uint16_t* path, uint8_t* pathLength);
     
     // Get next sequence number
     static uint16_t getNextSequence();
