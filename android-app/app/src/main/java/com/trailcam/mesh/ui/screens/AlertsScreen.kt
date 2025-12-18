@@ -33,6 +33,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import com.trailcam.mesh.data.CapturedImage
 import com.trailcam.mesh.data.MotionAlert
+import com.trailcam.mesh.ui.theme.TrailCamDimens
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -88,20 +89,56 @@ fun AlertsScreen(
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
+                    .padding(horizontal = TrailCamDimens.ScreenPadding),
+                verticalArrangement = Arrangement.spacedBy(TrailCamDimens.ContentSpacingSmall),
+                contentPadding = PaddingValues(bottom = TrailCamDimens.ContentSpacingMedium)
             ) {
-                items(
-                    items = alerts,
-                    key = { "${it.nodeId}-${it.receivedAt}" }
-                ) { alert ->
-                    SwipeableAlertCard(
-                        alert = alert,
-                        nodeName = nodeNames[alert.nodeId] ?: "Camera ${alert.nodeId}",
-                        onDelete = { onDeleteAlert(alert) },
-                        onClick = { selectedAlert = alert }
-                    )
+                // Group alerts by day: Today / Yesterday / Earlier
+                val now = System.currentTimeMillis()
+                val oneDayMillis = 24L * 60L * 60L * 1000L
+                val grouped = alerts.groupBy { alert ->
+                    val delta = now - alert.receivedAt
+                    when {
+                        delta < oneDayMillis -> "Today"
+                        delta < 2 * oneDayMillis -> "Yesterday"
+                        else -> "Earlier"
+                    }
+                }
+
+                grouped.toSortedMap(
+                    compareBy<String> { label ->
+                        when (label) {
+                            "Today" -> 0
+                            "Yesterday" -> 1
+                            else -> 2
+                        }
+                    }
+                ).forEach { (label, bucket) ->
+                    item(key = "header-$label") {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    top = TrailCamDimens.ContentSpacingSmall,
+                                    bottom = TrailCamDimens.ContentSpacingSmall / 2
+                                )
+                        )
+                    }
+                    items(
+                        items = bucket,
+                        key = { "${it.nodeId}-${it.receivedAt}" }
+                    ) { alert ->
+                        SwipeableAlertCard(
+                            alert = alert,
+                            nodeName = nodeNames[alert.nodeId] ?: "Camera ${alert.nodeId}",
+                            onDelete = { onDeleteAlert(alert) },
+                            onClick = { selectedAlert = alert }
+                        )
+                    }
                 }
             }
         }

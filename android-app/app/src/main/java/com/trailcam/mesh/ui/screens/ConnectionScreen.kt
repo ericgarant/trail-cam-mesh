@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.trailcam.mesh.data.BleDevice
 import com.trailcam.mesh.data.ConnectionState
+import com.trailcam.mesh.ui.theme.TrailCamDimens
 
 @Composable
 fun ConnectionScreen(
@@ -31,12 +32,13 @@ fun ConnectionScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(TrailCamDimens.ScreenPadding),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Status Card
         Card(
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(TrailCamDimens.CardCornerRadius),
             colors = CardDefaults.cardColors(
                 containerColor = when (connectionState) {
                     ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primaryContainer
@@ -87,7 +89,7 @@ fun ConnectionScreen(
             }
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(TrailCamDimens.ContentSpacingLarge))
         
         // Action Buttons
         Row(
@@ -129,7 +131,7 @@ fun ConnectionScreen(
             }
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(TrailCamDimens.ContentSpacingLarge))
         
         // Discovered Devices
         if (discoveredDevices.isNotEmpty()) {
@@ -158,7 +160,7 @@ fun ConnectionScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(32.dp),
+                    .padding(TrailCamDimens.ContentSpacingLarge),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
