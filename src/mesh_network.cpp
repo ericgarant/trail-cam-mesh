@@ -212,13 +212,23 @@ void MeshNetwork::relayMessage(const MeshMessage& msg) {
     
     _messagesRelayed++;
     
+    // Make a copy of the message so we can modify the path
+    MeshMessage relayMsg = msg;
+    
+    // Append current node ID to path for MOTION_ALERT messages
+    if (static_cast<MessageType>(relayMsg.header.messageType) == MessageType::MOTION_ALERT) {
+        if (MessageProtocol::appendToPath(relayMsg, DEVICE_ID)) {
+            DEBUG_PRINTF("[MESH] Added node %d to routing path\n", DEVICE_ID);
+        }
+    }
+    
     // Find next hop
     MeshNode* nextHop = nullptr;
     
-    if (msg.header.destId == GATEWAY_ID) {
+    if (relayMsg.header.destId == GATEWAY_ID) {
         nextHop = findGatewayRoute();
-    } else if (msg.header.destId != BROADCAST_ID) {
-        nextHop = findNode(msg.header.destId);
+    } else if (relayMsg.header.destId != BROADCAST_ID) {
+        nextHop = findNode(relayMsg.header.destId);
     }
     
     if (nextHop) {
@@ -226,12 +236,12 @@ void MeshNetwork::relayMessage(const MeshMessage& msg) {
         addPeer(nextHop->macAddress);
         
         uint8_t buffer[250];
-        size_t len = MessageProtocol::serialize(msg, buffer, sizeof(buffer));
+        size_t len = MessageProtocol::serialize(relayMsg, buffer, sizeof(buffer));
         
         esp_now_send(nextHop->macAddress, buffer, len);
-    } else if (msg.header.destId == BROADCAST_ID || msg.header.destId == GATEWAY_ID) {
+    } else if (relayMsg.header.destId == BROADCAST_ID || relayMsg.header.destId == GATEWAY_ID) {
         // Broadcast if no specific route
-        broadcast(msg);
+        broadcast(relayMsg);
     }
 }
 

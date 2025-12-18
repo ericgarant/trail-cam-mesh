@@ -53,7 +53,7 @@ public:
     bool isConnected();
     
     // Send notifications to phone
-    bool notifyMotionAlert(uint16_t nodeId, uint32_t timestamp, bool hasImage);
+    bool notifyMotionAlert(uint16_t nodeId, uint32_t timestamp, bool hasImage, const uint16_t* path = nullptr, uint8_t pathLength = 0);
     bool notifyStatus(uint16_t nodeId, uint8_t battery, int8_t rssi, uint8_t meshNodes);
     
     // Send image data to phone (chunked)

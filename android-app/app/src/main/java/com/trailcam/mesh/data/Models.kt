@@ -23,7 +23,8 @@ data class MotionAlert(
     val nodeId: Int,
     val timestamp: Long,
     val hasImage: Boolean,
-    val receivedAt: Long = System.currentTimeMillis()
+    val receivedAt: Long = System.currentTimeMillis(),
+    val path: List<Int> = emptyList()
 )
 
 /**

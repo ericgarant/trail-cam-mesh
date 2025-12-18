@@ -10,10 +10,12 @@
 
 // Device Role: ROLE_SENSOR or ROLE_GATEWAY
 // Gateway nodes have BLE enabled for phone communication
+// For sensor firmware, set ROLE_SENSOR. For the gateway, use ROLE_GATEWAY.
 #define DEVICE_ROLE ROLE_SENSOR
 
 // Unique device ID (1-254, 0 is reserved, 255 is broadcast)
-#define DEVICE_ID 5
+// This sensor will use ID 4. Use a unique ID per node.
+#define DEVICE_ID 4
 
 // Device roles enumeration
 #define ROLE_SENSOR  0

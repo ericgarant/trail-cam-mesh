@@ -150,10 +150,14 @@ MeshMessage MessageProtocol::createMotionAlert(uint16_t sourceId, uint32_t times
     MeshMessage msg = createMessage(sourceId, GATEWAY_ID, MessageType::MOTION_ALERT);
     
     MotionAlertPayload payload;
+    memset(&payload, 0, sizeof(MotionAlertPayload));  // Initialize all fields including path
     payload.timestamp = timestamp;
     payload.sensorId = sourceId & 0xFF;
     payload.imageId = imageId;
     payload.hasImage = hasImage ? 1 : 0;
+    // Initialize path with source node as first entry
+    payload.pathLength = 1;
+    payload.path[0] = sourceId;
     
     setPayload(msg, &payload, sizeof(MotionAlertPayload));
     
@@ -217,6 +221,60 @@ MeshMessage MessageProtocol::createAck(uint16_t sourceId, uint16_t destId, uint1
 
 uint16_t MessageProtocol::getNextSequence() {
     return ++_sequenceCounter;
+}
+
+bool MessageProtocol::appendToPath(MeshMessage& msg, uint16_t nodeId) {
+    // Only works for MOTION_ALERT messages
+    if (static_cast<MessageType>(msg.header.messageType) != MessageType::MOTION_ALERT) {
+        return false;
+    }
+    
+    // Check if payload is the right size
+    if (msg.payloadLength < sizeof(MotionAlertPayload)) {
+        // Old format without path - need to handle backward compatibility
+        // For now, we'll only append if path tracking is already present
+        return false;
+    }
+    
+    MotionAlertPayload* payload = reinterpret_cast<MotionAlertPayload*>(msg.payload);
+    
+    // Check if path is full
+    if (payload->pathLength >= MAX_PATH_LENGTH) {
+        DEBUG_PRINTLN("[MSG] Path is full, cannot append");
+        return false;
+    }
+    
+    // Append node ID to path
+    payload->path[payload->pathLength] = nodeId;
+    payload->pathLength++;
+    
+    // Recalculate checksum since payload changed
+    msg.header.checksum = calculateChecksum(msg);
+    
+    return true;
+}
+
+bool MessageProtocol::getPath(const MeshMessage& msg, uint16_t* path, uint8_t* pathLength) {
+    // Only works for MOTION_ALERT messages
+    if (static_cast<MessageType>(msg.header.messageType) != MessageType::MOTION_ALERT) {
+        return false;
+    }
+    
+    // Check if payload is the right size
+    if (msg.payloadLength < sizeof(MotionAlertPayload)) {
+        // Old format without path
+        *pathLength = 0;
+        return true;  // Return true but with empty path for backward compatibility
+    }
+    
+    const MotionAlertPayload* payload = reinterpret_cast<const MotionAlertPayload*>(msg.payload);
+    
+    *pathLength = payload->pathLength;
+    if (path && *pathLength > 0) {
+        memcpy(path, payload->path, *pathLength * sizeof(uint16_t));
+    }
+    
+    return true;
 }
 
 
