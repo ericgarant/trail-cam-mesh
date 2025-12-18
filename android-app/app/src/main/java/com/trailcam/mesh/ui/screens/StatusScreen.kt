@@ -37,12 +37,39 @@ fun StatusScreen(
     onSetImageHMirror: (Int, Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    StatusSection(
+        connectionState = connectionState,
+        nodeStatuses = nodeStatuses,
+        nodeNames = nodeNames,
+        nodeImageSettings = nodeImageSettings,
+        onRequestStatus = onRequestStatus,
+        onPingMesh = onPingMesh,
+        onSetNodeName = onSetNodeName,
+        onSetImageVFlip = onSetImageVFlip,
+        onSetImageHMirror = onSetImageHMirror,
+        modifier = modifier
+            .fillMaxSize()
+            .padding(TrailCamDimens.ScreenPadding)
+    )
+}
+
+@Composable
+fun StatusSection(
+    connectionState: ConnectionState,
+    nodeStatuses: Map<Int, NodeStatus>,
+    nodeNames: Map<Int, String>,
+    nodeImageSettings: Map<Int, ImageSettings>,
+    onRequestStatus: () -> Unit,
+    onPingMesh: () -> Unit,
+    onSetNodeName: (Int, String) -> Unit,
+    onSetImageVFlip: (Int, Boolean) -> Unit,
+    onSetImageHMirror: (Int, Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
     var editingNodeId by remember { mutableStateOf<Int?>(null) }
     
     Column(
         modifier = modifier
-            .fillMaxSize()
-            .padding(TrailCamDimens.ScreenPadding)
     ) {
         // Action buttons
         Row(
@@ -61,11 +88,15 @@ fun StatusScreen(
             OutlinedButton(
                 onClick = onPingMesh,
                 enabled = connectionState == ConnectionState.CONNECTED,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
             ) {
                 Icon(Icons.Default.Sensors, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Ping Mesh")
+                Text(
+                    text = "Ping mesh",
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
         
@@ -172,10 +203,10 @@ fun StatusScreen(
                 }
             }
         } else {
-            LazyColumn(
+            Column(
                 verticalArrangement = Arrangement.spacedBy(TrailCamDimens.ContentSpacingSmall)
             ) {
-                items(nodeStatuses.values.toList(), key = { it.nodeId }) { status ->
+                nodeStatuses.values.forEach { status ->
                     NodeStatusCard(
                         status = status,
                         customName = nodeNames[status.nodeId],
