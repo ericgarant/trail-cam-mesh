@@ -1,10 +1,7 @@
 package com.trailcam.mesh.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -29,13 +26,34 @@ fun ConnectionScreen(
     onDisconnect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    ConnectionSection(
+        connectionState = connectionState,
+        discoveredDevices = discoveredDevices,
+        onStartScan = onStartScan,
+        onStopScan = onStopScan,
+        onConnect = onConnect,
+        onDisconnect = onDisconnect,
         modifier = modifier
             .fillMaxSize()
-            .padding(TrailCamDimens.ScreenPadding),
+            .padding(TrailCamDimens.ScreenPadding)
+    )
+}
+
+@Composable
+fun ConnectionSection(
+    connectionState: ConnectionState,
+    discoveredDevices: List<BleDevice>,
+    onStartScan: () -> Unit,
+    onStopScan: () -> Unit,
+    onConnect: (String) -> Unit,
+    onDisconnect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Status Card
+        // Status + primary action card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(TrailCamDimens.CardCornerRadius),
@@ -47,110 +65,113 @@ fun ConnectionScreen(
                 }
             )
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(16.dp)
             ) {
-                Icon(
-                    imageVector = when (connectionState) {
-                        ConnectionState.CONNECTED -> Icons.Default.BluetoothConnected
-                        ConnectionState.SCANNING -> Icons.Default.BluetoothSearching
-                        ConnectionState.CONNECTING, ConnectionState.DISCOVERING_SERVICES -> Icons.Default.Bluetooth
-                        else -> Icons.Default.BluetoothDisabled
-                    },
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(
-                        text = when (connectionState) {
-                            ConnectionState.CONNECTED -> "Connected"
-                            ConnectionState.SCANNING -> "Scanning..."
-                            ConnectionState.CONNECTING -> "Connecting..."
-                            ConnectionState.DISCOVERING_SERVICES -> "Discovering services..."
-                            else -> "Disconnected"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = when (connectionState) {
-                            ConnectionState.CONNECTED -> "Ready to receive alerts"
-                            ConnectionState.SCANNING -> "Looking for Trail Cam Gateway"
-                            else -> "Tap scan to find devices"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(TrailCamDimens.ContentSpacingLarge))
-        
-        // Action Buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (connectionState == ConnectionState.CONNECTED) {
-                Button(
-                    onClick = onDisconnect,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.BluetoothDisabled, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Disconnect")
-                }
-            } else {
-                Button(
-                    onClick = if (connectionState == ConnectionState.SCANNING) onStopScan else onStartScan,
-                    modifier = Modifier.weight(1f),
-                    enabled = connectionState != ConnectionState.CONNECTING
-                ) {
-                    if (connectionState == ConnectionState.SCANNING) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp
+                    Icon(
+                        imageVector = when (connectionState) {
+                            ConnectionState.CONNECTED -> Icons.Default.BluetoothConnected
+                            ConnectionState.SCANNING -> Icons.Default.BluetoothSearching
+                            ConnectionState.CONNECTING, ConnectionState.DISCOVERING_SERVICES -> Icons.Default.Bluetooth
+                            else -> Icons.Default.BluetoothDisabled
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(
+                            text = when (connectionState) {
+                                ConnectionState.CONNECTED -> "Connected"
+                                ConnectionState.SCANNING -> "Scanning..."
+                                ConnectionState.CONNECTING -> "Connecting..."
+                                ConnectionState.DISCOVERING_SERVICES -> "Discovering services..."
+                                else -> "Disconnected"
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Stop Scan")
+                        Text(
+                            text = when (connectionState) {
+                                ConnectionState.CONNECTED -> "Gateway connected. Alerts and status updates will appear here."
+                                ConnectionState.SCANNING -> "Searching for Gateway. Tap Stop when you're done."
+                                ConnectionState.CONNECTING -> "Connecting to Gateway..."
+                                ConnectionState.DISCOVERING_SERVICES -> "Finalizing connection to Gateway..."
+                                else -> "Tap Scan to find your Gateway."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(TrailCamDimens.ContentSpacingSmall))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    if (connectionState == ConnectionState.CONNECTED) {
+                        Button(
+                            onClick = onDisconnect,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Icon(Icons.Default.BluetoothDisabled, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Disconnect")
+                        }
                     } else {
-                        Icon(Icons.Default.Search, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Scan for Gateway")
+                        Button(
+                            onClick = if (connectionState == ConnectionState.SCANNING) onStopScan else onStartScan,
+                            enabled = connectionState != ConnectionState.CONNECTING
+                        ) {
+                            if (connectionState == ConnectionState.SCANNING) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Stop Scan")
+                            } else {
+                                Icon(Icons.Default.Search, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Scan")
+                            }
+                        }
                     }
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(TrailCamDimens.ContentSpacingLarge))
-        
+
         // Discovered Devices
         if (discoveredDevices.isNotEmpty()) {
             Text(
-                text = "Discovered Devices",
+                text = "Discovered devices",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.Start)
             )
             Spacer(modifier = Modifier.height(8.dp))
-            
-            LazyColumn(
+
+            Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(discoveredDevices) { device ->
+                discoveredDevices.forEach { device ->
                     DeviceCard(
                         device = device,
                         onClick = { onConnect(device.address) },
-                        enabled = connectionState == ConnectionState.DISCONNECTED || 
+                        enabled = connectionState == ConnectionState.DISCONNECTED ||
                                   connectionState == ConnectionState.SCANNING
                     )
                 }

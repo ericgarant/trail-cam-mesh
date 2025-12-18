@@ -106,10 +106,10 @@ class MainActivity : ComponentActivity() {
                         TopAppBar(
                             title = {
                                 val sectionTitle = when (selectedTab) {
-                                    0 -> "Connection"
+                                    0 -> "Gateway"
                                     1 -> "Alerts"
                                     2 -> "Gallery"
-                                    else -> "Network Status"
+                                    else -> "Gateway"
                                 }
                                 Column {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -176,8 +176,8 @@ class MainActivity : ComponentActivity() {
                                 indicatorColor = MaterialTheme.colorScheme.primary
                             )
                             NavigationBarItem(
-                                icon = { Icon(Icons.Default.Bluetooth, contentDescription = null) },
-                                label = { Text("Connect") },
+                                icon = { Icon(Icons.Default.Router, contentDescription = null) },
+                                label = { Text("Gateway") },
                                 selected = selectedTab == 0,
                                 onClick = { viewModel.selectTab(0) },
                                 colors = navBarItemColors
@@ -220,13 +220,7 @@ class MainActivity : ComponentActivity() {
                                 onClick = { viewModel.selectTab(2) },
                                 colors = navBarItemColors
                             )
-                            NavigationBarItem(
-                                icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                                label = { Text("Status") },
-                                selected = selectedTab == 3,
-                                onClick = { viewModel.selectTab(3) },
-                                colors = navBarItemColors
-                            )
+                            // Status and connection are combined into the Gateway tab
                         }
                     }
                 ) { padding ->
@@ -238,10 +232,18 @@ class MainActivity : ComponentActivity() {
                         )
                     } else {
                         // Main content
-                        when (selectedTab) {
-                            0 -> ConnectionScreen(
+                        val currentTab = when (selectedTab) {
+                            0, 1, 2 -> selectedTab
+                            else -> 0
+                        }
+
+                        when (currentTab) {
+                            0 -> GatewayScreen(
                                 connectionState = connectionState,
                                 discoveredDevices = discoveredDevices,
+                                nodeStatuses = nodeStatuses,
+                                nodeNames = nodeNames,
+                                nodeImageSettings = nodeImageSettings,
                                 onStartScan = { 
                                     if (!viewModel.isBluetoothEnabled()) {
                                         enableBluetoothLauncher.launch(
@@ -254,6 +256,31 @@ class MainActivity : ComponentActivity() {
                                 onStopScan = { viewModel.stopScan() },
                                 onConnect = { viewModel.connect(it) },
                                 onDisconnect = { viewModel.disconnect() },
+                                onRequestStatus = {
+                                    viewModel.requestStatus()
+                                    snackbarScope.launch {
+                                        snackbarHostState.showSnackbar("Requested node status")
+                                    }
+                                },
+                                onPingMesh = {
+                                    viewModel.pingMesh()
+                                    snackbarScope.launch {
+                                        snackbarHostState.showSnackbar("Ping sent to mesh")
+                                    }
+                                },
+                                onSetNodeName = { nodeId, name ->
+                                    viewModel.setNodeName(nodeId, name)
+                                    val displayName = name.ifBlank { "Camera $nodeId" }
+                                    snackbarScope.launch {
+                                        snackbarHostState.showSnackbar("Saved name for $displayName")
+                                    }
+                                },
+                                onSetImageVFlip = { nodeId, vflip ->
+                                    viewModel.setImageVFlip(nodeId, vflip)
+                                },
+                                onSetImageHMirror = { nodeId, hmirror ->
+                                    viewModel.setImageHMirror(nodeId, hmirror)
+                                },
                                 modifier = Modifier.padding(padding)
                             )
                             1 -> AlertsScreen(
@@ -281,38 +308,6 @@ class MainActivity : ComponentActivity() {
                                 nodeNames = nodeNames,
                                 onImageClick = { viewModel.selectImage(it) },
                                 onDismissImage = { viewModel.selectImage(null) },
-                                modifier = Modifier.padding(padding)
-                            )
-                            3 -> StatusScreen(
-                                connectionState = connectionState,
-                                nodeStatuses = nodeStatuses,
-                                nodeNames = nodeNames,
-                                nodeImageSettings = nodeImageSettings,
-                                onRequestStatus = {
-                                    viewModel.requestStatus()
-                                    snackbarScope.launch {
-                                        snackbarHostState.showSnackbar("Requested node status")
-                                    }
-                                },
-                                onPingMesh = {
-                                    viewModel.pingMesh()
-                                    snackbarScope.launch {
-                                        snackbarHostState.showSnackbar("Ping sent to mesh")
-                                    }
-                                },
-                                onSetNodeName = { nodeId, name ->
-                                    viewModel.setNodeName(nodeId, name)
-                                    val displayName = name.ifBlank { "Camera $nodeId" }
-                                    snackbarScope.launch {
-                                        snackbarHostState.showSnackbar("Saved name for $displayName")
-                                    }
-                                },
-                                onSetImageVFlip = { nodeId, vflip ->
-                                    viewModel.setImageVFlip(nodeId, vflip)
-                                },
-                                onSetImageHMirror = { nodeId, hmirror ->
-                                    viewModel.setImageHMirror(nodeId, hmirror)
-                                },
                                 modifier = Modifier.padding(padding)
                             )
                         }
