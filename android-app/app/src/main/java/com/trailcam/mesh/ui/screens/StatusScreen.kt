@@ -1,5 +1,6 @@
 package com.trailcam.mesh.ui.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +20,7 @@ import com.trailcam.mesh.data.ConnectionState
 import com.trailcam.mesh.data.ImageSettings
 import com.trailcam.mesh.data.NodeNameManager
 import com.trailcam.mesh.data.NodeStatus
+import com.trailcam.mesh.ui.theme.TrailCamDimens
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -40,7 +42,7 @@ fun StatusScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(TrailCamDimens.ScreenPadding)
     ) {
         // Action buttons
         Row(
@@ -67,7 +69,7 @@ fun StatusScreen(
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(TrailCamDimens.ContentSpacingMedium))
         
         // Gateway status
         Card(
@@ -113,7 +115,7 @@ fun StatusScreen(
             }
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(TrailCamDimens.ContentSpacingLarge))
         
         // Node statuses
         Row(
@@ -133,7 +135,7 @@ fun StatusScreen(
             )
         }
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(TrailCamDimens.ContentSpacingSmall))
         
         if (nodeStatuses.isEmpty()) {
             Card(
@@ -171,7 +173,7 @@ fun StatusScreen(
             }
         } else {
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(TrailCamDimens.ContentSpacingSmall)
             ) {
                 items(nodeStatuses.values.toList(), key = { it.nodeId }) { status ->
                     NodeStatusCard(
@@ -219,7 +221,8 @@ private fun NodeStatusCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onEditClick),
+            .clickable(onClick = onEditClick)
+            .animateContentSize(),
         colors = CardDefaults.cardColors(
             containerColor = if (isGateway) 
                 MaterialTheme.colorScheme.secondaryContainer 

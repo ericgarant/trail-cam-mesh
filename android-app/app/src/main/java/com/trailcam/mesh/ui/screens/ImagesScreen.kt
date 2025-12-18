@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.trailcam.mesh.data.CapturedImage
 import com.trailcam.mesh.data.ImageSettings
+import com.trailcam.mesh.ui.theme.TrailCamDimens
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -33,6 +34,7 @@ fun ImagesScreen(
     images: List<CapturedImage>,
     selectedImage: CapturedImage?,
     nodeImageSettings: Map<Int, ImageSettings>,
+    nodeNames: Map<Int, String>,
     onImageClick: (CapturedImage) -> Unit,
     onDismissImage: () -> Unit,
     modifier: Modifier = Modifier
@@ -44,15 +46,16 @@ fun ImagesScreen(
             columns = GridCells.Fixed(2),
             modifier = modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
+                .padding(horizontal = TrailCamDimens.ScreenPadding),
+            verticalArrangement = Arrangement.spacedBy(TrailCamDimens.ContentSpacingSmall),
+            horizontalArrangement = Arrangement.spacedBy(TrailCamDimens.ContentSpacingSmall),
+            contentPadding = PaddingValues(vertical = TrailCamDimens.ContentSpacingMedium)
         ) {
             items(images, key = { "${it.nodeId}-${it.imageId}" }) { image ->
                 ImageCard(
                     image = image,
                     imageSettings = nodeImageSettings[image.nodeId] ?: ImageSettings(),
+                    nodeName = nodeNames[image.nodeId] ?: "Camera ${image.nodeId}",
                     onClick = { onImageClick(image) }
                 )
             }
@@ -64,6 +67,7 @@ fun ImagesScreen(
         ImageDetailDialog(
             image = image,
             imageSettings = nodeImageSettings[image.nodeId] ?: ImageSettings(),
+            nodeName = nodeNames[image.nodeId] ?: "Camera ${image.nodeId}",
             onDismiss = onDismissImage
         )
     }
@@ -73,6 +77,7 @@ fun ImagesScreen(
 private fun ImageCard(
     image: CapturedImage,
     imageSettings: ImageSettings,
+    nodeName: String,
     onClick: () -> Unit
 ) {
     val bitmap = remember(image.data, imageSettings) {
@@ -93,7 +98,7 @@ private fun ImageCard(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(4f / 3f)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(TrailCamDimens.CardCornerRadius))
             .clickable(onClick = onClick)
     ) {
         Box {
@@ -126,13 +131,13 @@ private fun ImageCard(
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .background(
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
                     )
                     .padding(8.dp)
             ) {
                 Column {
                     Text(
-                        text = "Camera ${image.nodeId}",
+                        text = nodeName,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -151,6 +156,7 @@ private fun ImageCard(
 private fun ImageDetailDialog(
     image: CapturedImage,
     imageSettings: ImageSettings,
+    nodeName: String,
     onDismiss: () -> Unit
 ) {
     val bitmap = remember(image.data, imageSettings) {
@@ -185,7 +191,7 @@ private fun ImageDetailDialog(
                 ) {
                     Column {
                         Text(
-                            text = "Camera ${image.nodeId}",
+                            text = nodeName,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )

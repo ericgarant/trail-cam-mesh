@@ -8,7 +8,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -22,7 +24,10 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.trailcam.mesh.data.ConnectionState
 import com.trailcam.mesh.ui.MainViewModel
 import com.trailcam.mesh.ui.screens.*
+import com.trailcam.mesh.ui.theme.TrailCamDimens
+import com.trailcam.mesh.ui.theme.TrailCamStatusColors
 import com.trailcam.mesh.ui.theme.TrailCamTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     
@@ -92,17 +97,38 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 
+                val snackbarHostState = remember { SnackbarHostState() }
+                val snackbarScope = rememberCoroutineScope()
+
                 Scaffold(
+                    snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                     topBar = {
                         TopAppBar(
-                            title = { 
-                                Row {
-                                    Icon(
-                                        imageVector = Icons.Default.Pets,
-                                        contentDescription = null
+                            title = {
+                                val sectionTitle = when (selectedTab) {
+                                    0 -> "Connection"
+                                    1 -> "Alerts"
+                                    2 -> "Gallery"
+                                    else -> "Network Status"
+                                }
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Pets,
+                                            contentDescription = null
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Trail Cam Mesh",
+                                            style = MaterialTheme.typography.titleLarge
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = sectionTitle,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Trail Cam Mesh")
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
@@ -110,32 +136,33 @@ class MainActivity : ComponentActivity() {
                                 titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                             ),
                             actions = {
-                                // Connection status indicator
+                                // Compact connection status indicator: green when connected, red when not.
+                                // Use a colored circular background with a high-contrast icon so it's always visible.
+                                val isConnected = connectionState == ConnectionState.CONNECTED
                                 Surface(
-                                    shape = MaterialTheme.shapes.small,
-                                    color = when (connectionState) {
-                                        ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primary
-                                        ConnectionState.SCANNING, ConnectionState.CONNECTING -> MaterialTheme.colorScheme.tertiary
-                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    shape = CircleShape,
+                                    color = if (isConnected) {
+                                        TrailCamStatusColors.Connected
+                                    } else {
+                                        MaterialTheme.colorScheme.error
                                     }
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = when (connectionState) {
-                                                ConnectionState.CONNECTED -> Icons.Default.BluetoothConnected
-                                                else -> Icons.Default.BluetoothDisabled
-                                            },
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = when (connectionState) {
-                                                ConnectionState.CONNECTED -> MaterialTheme.colorScheme.onPrimary
-                                                ConnectionState.SCANNING, ConnectionState.CONNECTING -> MaterialTheme.colorScheme.onTertiary
-                                                else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                            }
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = if (isConnected) {
+                                            Icons.Default.BluetoothConnected
+                                        } else {
+                                            Icons.Default.BluetoothDisabled
+                                        },
+                                        contentDescription = if (isConnected) {
+                                            "Connected"
+                                        } else {
+                                            "Not connected"
+                                        },
+                                        modifier = Modifier
+                                            .padding(4.dp)
+                                            .size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                             }
@@ -143,18 +170,26 @@ class MainActivity : ComponentActivity() {
                     },
                     bottomBar = {
                         NavigationBar {
+                            val navBarItemColors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                indicatorColor = MaterialTheme.colorScheme.primary
+                            )
                             NavigationBarItem(
                                 icon = { Icon(Icons.Default.Bluetooth, contentDescription = null) },
                                 label = { Text("Connect") },
                                 selected = selectedTab == 0,
-                                onClick = { viewModel.selectTab(0) }
+                                onClick = { viewModel.selectTab(0) },
+                                colors = navBarItemColors
                             )
                             NavigationBarItem(
-                                icon = { 
+                                icon = {
                                     BadgedBox(
                                         badge = {
                                             if (motionAlerts.isNotEmpty()) {
-                                                Badge { Text("${motionAlerts.size}") }
+                                                val count = motionAlerts.size
+                                                val label = if (count > 9) "9+" else "$count"
+                                                Badge { Text(label) }
                                             }
                                         }
                                     ) {
@@ -163,14 +198,17 @@ class MainActivity : ComponentActivity() {
                                 },
                                 label = { Text("Alerts") },
                                 selected = selectedTab == 1,
-                                onClick = { viewModel.selectTab(1) }
+                                onClick = { viewModel.selectTab(1) },
+                                colors = navBarItemColors
                             )
                             NavigationBarItem(
-                                icon = { 
+                                icon = {
                                     BadgedBox(
                                         badge = {
                                             if (capturedImages.isNotEmpty()) {
-                                                Badge { Text("${capturedImages.size}") }
+                                                val count = capturedImages.size
+                                                val label = if (count > 9) "9+" else "$count"
+                                                Badge { Text(label) }
                                             }
                                         }
                                     ) {
@@ -179,13 +217,15 @@ class MainActivity : ComponentActivity() {
                                 },
                                 label = { Text("Images") },
                                 selected = selectedTab == 2,
-                                onClick = { viewModel.selectTab(2) }
+                                onClick = { viewModel.selectTab(2) },
+                                colors = navBarItemColors
                             )
                             NavigationBarItem(
                                 icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                                 label = { Text("Status") },
                                 selected = selectedTab == 3,
-                                onClick = { viewModel.selectTab(3) }
+                                onClick = { viewModel.selectTab(3) },
+                                colors = navBarItemColors
                             )
                         }
                     }
@@ -220,14 +260,25 @@ class MainActivity : ComponentActivity() {
                                 alerts = motionAlerts,
                                 images = capturedImages,
                                 nodeNames = nodeNames,
-                                onClearAlerts = { viewModel.clearAlerts() },
-                                onDeleteAlert = { viewModel.deleteAlert(it) },
+                                onClearAlerts = {
+                                    viewModel.clearAlerts()
+                                    snackbarScope.launch {
+                                        snackbarHostState.showSnackbar("Alerts cleared")
+                                    }
+                                },
+                                onDeleteAlert = { alert ->
+                                    viewModel.deleteAlert(alert)
+                                    snackbarScope.launch {
+                                        snackbarHostState.showSnackbar("Alert deleted")
+                                    }
+                                },
                                 modifier = Modifier.padding(padding)
                             )
                             2 -> ImagesScreen(
                                 images = capturedImages,
                                 selectedImage = selectedImage,
                                 nodeImageSettings = nodeImageSettings,
+                                nodeNames = nodeNames,
                                 onImageClick = { viewModel.selectImage(it) },
                                 onDismissImage = { viewModel.selectImage(null) },
                                 modifier = Modifier.padding(padding)
@@ -237,11 +288,31 @@ class MainActivity : ComponentActivity() {
                                 nodeStatuses = nodeStatuses,
                                 nodeNames = nodeNames,
                                 nodeImageSettings = nodeImageSettings,
-                                onRequestStatus = { viewModel.requestStatus() },
-                                onPingMesh = { viewModel.pingMesh() },
-                                onSetNodeName = { nodeId, name -> viewModel.setNodeName(nodeId, name) },
-                                onSetImageVFlip = { nodeId, vflip -> viewModel.setImageVFlip(nodeId, vflip) },
-                                onSetImageHMirror = { nodeId, hmirror -> viewModel.setImageHMirror(nodeId, hmirror) },
+                                onRequestStatus = {
+                                    viewModel.requestStatus()
+                                    snackbarScope.launch {
+                                        snackbarHostState.showSnackbar("Requested node status")
+                                    }
+                                },
+                                onPingMesh = {
+                                    viewModel.pingMesh()
+                                    snackbarScope.launch {
+                                        snackbarHostState.showSnackbar("Ping sent to mesh")
+                                    }
+                                },
+                                onSetNodeName = { nodeId, name ->
+                                    viewModel.setNodeName(nodeId, name)
+                                    val displayName = name.ifBlank { "Camera $nodeId" }
+                                    snackbarScope.launch {
+                                        snackbarHostState.showSnackbar("Saved name for $displayName")
+                                    }
+                                },
+                                onSetImageVFlip = { nodeId, vflip ->
+                                    viewModel.setImageVFlip(nodeId, vflip)
+                                },
+                                onSetImageHMirror = { nodeId, hmirror ->
+                                    viewModel.setImageHMirror(nodeId, hmirror)
+                                },
                                 modifier = Modifier.padding(padding)
                             )
                         }
@@ -257,10 +328,15 @@ private fun PermissionsScreen(
     onRequestPermissions: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showMore by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(
+                horizontal = TrailCamDimens.ScreenPadding,
+                vertical = TrailCamDimens.ContentSpacingLarge
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -277,13 +353,79 @@ private fun PermissionsScreen(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Trail Cam Mesh needs Bluetooth and Location permissions to discover and connect to your trail cameras.",
+            text = "Trail Cam Mesh needs a few permissions so it can discover your gateway, receive alerts, and notify you reliably.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(24.dp))
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(TrailCamDimens.ContentSpacingSmall)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Bluetooth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text("Bluetooth", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "Scan for and connect to your Trail Cam Gateway.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Place,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text("Location", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "Required by Android for Bluetooth scanning in the background.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.NotificationsActive,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text("Notifications", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "Let you know when motion is detected, even if the app is closed.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(TrailCamDimens.ContentSpacingLarge))
         Button(onClick = onRequestPermissions) {
-            Text("Grant Permissions")
+            Text("Enable permissions to continue")
+        }
+        Spacer(modifier = Modifier.height(TrailCamDimens.ContentSpacingSmall))
+        TextButton(onClick = { showMore = !showMore }) {
+            Text(if (showMore) "Hide details" else "Learn more")
+        }
+        AnimatedVisibility(visible = showMore) {
+            Text(
+                text = "Permissions are only used to talk to your Trail Cam Gateway and deliver motion alerts. You can change them anytime in Android Settings.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = TrailCamDimens.ContentSpacingSmall)
+            )
         }
     }
 }
